@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.portal'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Keycloak Core SPI boundaries (Provided by host container runtime)
+    compileOnly 'org.keycloak:keycloak-server-spi:26.1.0'
+    compileOnly 'org.keycloak:keycloak-server-spi-private:26.1.0'
+    compileOnly 'org.keycloak:keycloak-services:26.1.0'
+    compileOnly 'jakarta.persistence:jakarta.persistence-api:3.1.0'
+
+    // Compile annotations processing definitions
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+    // Packages explicitly embedded inside your final binary JAR mapping payload
+    implementation 'org.mindrot:jbcrypt:0.4'
+    implementation 'com.mysql:mysql-connector-j:9.1.0'
+}
+
+// FIXED: Comprehensive pattern that strips out persistence.xml files on the fly during library extraction
+// FIXED: Strict file exclusion matrix that intercepts and removes embedded persistence xml files
+jar {
+    archiveClassifier.set('')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    // 1. Explicitly drops any local project workspace persistence templates
+    exclude '**/persistence.xml'
+    exclude 'META-INF/persistence.xml'
+
+    // 2. Intercepts the extraction process of external dependencies to filter files on the fly
+    from {
+        configurations.runtimeClasspath.collect { file ->
+            file.isDirectory() ? file : zipTree(file)
+        }
+    }
+
+    // 3. Low-level global project action block to strip out ghost configuration files
+    exclude { FileTreeElement details ->
+        details.name.equalsIgnoreCase('persistence.xml')
+    }
+}
